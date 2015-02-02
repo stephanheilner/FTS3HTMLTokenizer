@@ -664,13 +664,43 @@ static int unicodeNext(
     /* Scan past any delimiter characters before the start of the next token.
      ** Return SQLITE_DONE early if this takes us all the way to the end of
      ** the input.  */
+    char *markerStart = "<marker";
+    char *markerEnd = "</marker>";
+    
     while (z < zTerm) {
         
+        /* Start of custom code to escape HTML tags */
         if (z[0] == '<') {
-            while (z != zTerm && z[0] != '>') {
-                iCode = *(z++);
+            int i = 0 ;
+            for (; i < 7; i++) {
+                if (z[i] != markerStart[i]) {
+                    break;
+                }
+            }
+
+            if (i == 7) {
+                iCode = *(z += 7);
+                
+                while (z != zTerm && z[0] != '<') {
+                    iCode = *(z++);
+                }
+                
+                for (i = 0; i < 9; i++) {
+                    if (z[i] != markerEnd[i]) {
+                        break;
+                    }
+                }
+                if (i == 9) {
+                    iCode = *(z += 8);
+                }
+                
+            } else {
+                while (z != zTerm && z[0] != '>') {
+                    iCode = *(z++);
+                }
             }
         }
+        /* End of custom code to escape HTML tags */
         
         READ_UTF8(z, zTerm, iCode);
         
