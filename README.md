@@ -15,5 +15,5 @@ Then, in your class when you've initialized your database connection, register t
 ```objective-c
 registerTokenizer(db, "FTS3HTMLTokenizer");
 
-CREATE VIRTUAL TABLE my_fts_content USING fts4(content, tokenize=FTS3HTMLTokenizer);
+CREATE VIRTUAL TABLE my_fts_content USING fts4(content, tokenize=FTS3HTMLTokenizer en_US);
 ```
