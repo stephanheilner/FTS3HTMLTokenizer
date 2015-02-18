@@ -18,7 +18,7 @@
 #include <ctype.h>
 #include <libstemmer.h>
 
-int registerTokenizer(sqlite3 *db, char *zName);
+int registerTokenizer(sqlite3 *db, char *zName, const char *resourcePath);
 
 #ifndef _FTS3_TOKENIZER_H_
 #define _FTS3_TOKENIZER_H_
@@ -54,6 +54,8 @@ struct sqlite3_tokenizer_module {
                     int *piEnd,                     /* OUT: Ending offset of token */
                     int *piPos                      /* OUT: Position integer of token */
                     );
+    
+    void workingDirectory(char *path);
 };
 
 struct unicode_tokenizer {
