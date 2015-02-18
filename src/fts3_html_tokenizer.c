@@ -15,6 +15,7 @@
 
 #include "fts3_html_tokenizer.h"
 #include "fts3Int.h"
+#include "stopwords.h"
 
 #if !defined(SQLITE_CORE) || defined(SQLITE_ENABLE_FTS3)
 
@@ -137,9 +138,9 @@ static int sqlite3FtsUnicodeIsalnum(int c) {
         0x380400F0,
     };
     static const unsigned int aAscii[4] = {
-            0xFFFFFFFF, 0xFC00FFFF, 0xF8000001, 0xF8000001,
+        0xFFFFFFFF, 0xFC00FFFF, 0xF8000001, 0xF8000001,
     };
-
+    
     if (c < 128) {
         return ((aAscii[c >> 5] & (1 << (c & 0x001F))) == 0);
     } else if (c < (1 << 22)) {
@@ -173,32 +174,32 @@ static int sqlite3FtsUnicodeIsalnum(int c) {
  */
 static int remove_diacritic(int c) {
     unsigned short aDia[] = {
-            0, 1797, 1848, 1859, 1891, 1928, 1940, 1995,
-            2024, 2040, 2060, 2110, 2168, 2206, 2264, 2286,
-            2344, 2383, 2472, 2488, 2516, 2596, 2668, 2732,
-            2782, 2842, 2894, 2954, 2984, 3000, 3028, 3336,
-            3456, 3696, 3712, 3728, 3744, 3896, 3912, 3928,
-            3968, 4008, 4040, 4106, 4138, 4170, 4202, 4234,
-            4266, 4296, 4312, 4344, 4408, 4424, 4472, 4504,
-            6148, 6198, 6264, 6280, 6360, 6429, 6505, 6529,
-            61448, 61468, 61534, 61592, 61642, 61688, 61704, 61726,
-            61784, 61800, 61836, 61880, 61914, 61948, 61998, 62122,
-            62154, 62200, 62218, 62302, 62364, 62442, 62478, 62536,
-            62554, 62584, 62604, 62640, 62648, 62656, 62664, 62730,
-            62924, 63050, 63082, 63274, 63390,
+        0, 1797, 1848, 1859, 1891, 1928, 1940, 1995,
+        2024, 2040, 2060, 2110, 2168, 2206, 2264, 2286,
+        2344, 2383, 2472, 2488, 2516, 2596, 2668, 2732,
+        2782, 2842, 2894, 2954, 2984, 3000, 3028, 3336,
+        3456, 3696, 3712, 3728, 3744, 3896, 3912, 3928,
+        3968, 4008, 4040, 4106, 4138, 4170, 4202, 4234,
+        4266, 4296, 4312, 4344, 4408, 4424, 4472, 4504,
+        6148, 6198, 6264, 6280, 6360, 6429, 6505, 6529,
+        61448, 61468, 61534, 61592, 61642, 61688, 61704, 61726,
+        61784, 61800, 61836, 61880, 61914, 61948, 61998, 62122,
+        62154, 62200, 62218, 62302, 62364, 62442, 62478, 62536,
+        62554, 62584, 62604, 62640, 62648, 62656, 62664, 62730,
+        62924, 63050, 63082, 63274, 63390,
     };
     char aChar[] = {
-            '\0', 'a', 'c', 'e', 'i', 'n', 'o', 'u', 'y', 'y', 'a', 'c',
-            'd', 'e', 'e', 'g', 'h', 'i', 'j', 'k', 'l', 'n', 'o', 'r',
-            's', 't', 'u', 'u', 'w', 'y', 'z', 'o', 'u', 'a', 'i', 'o',
-            'u', 'g', 'k', 'o', 'j', 'g', 'n', 'a', 'e', 'i', 'o', 'r',
-            'u', 's', 't', 'h', 'a', 'e', 'o', 'y', '\0', '\0', '\0', '\0',
-            '\0', '\0', '\0', '\0', 'a', 'b', 'd', 'd', 'e', 'f', 'g', 'h',
-            'h', 'i', 'k', 'l', 'l', 'm', 'n', 'p', 'r', 'r', 's', 't',
-            'u', 'v', 'w', 'w', 'x', 'y', 'z', 'h', 't', 'w', 'y', 'a',
-            'e', 'i', 'o', 'u', 'y',
+        '\0', 'a', 'c', 'e', 'i', 'n', 'o', 'u', 'y', 'y', 'a', 'c',
+        'd', 'e', 'e', 'g', 'h', 'i', 'j', 'k', 'l', 'n', 'o', 'r',
+        's', 't', 'u', 'u', 'w', 'y', 'z', 'o', 'u', 'a', 'i', 'o',
+        'u', 'g', 'k', 'o', 'j', 'g', 'n', 'a', 'e', 'i', 'o', 'r',
+        'u', 's', 't', 'h', 'a', 'e', 'o', 'y', '\0', '\0', '\0', '\0',
+        '\0', '\0', '\0', '\0', 'a', 'b', 'd', 'd', 'e', 'f', 'g', 'h',
+        'h', 'i', 'k', 'l', 'l', 'm', 'n', 'p', 'r', 'r', 's', 't',
+        'u', 'v', 'w', 'w', 'x', 'y', 'z', 'h', 't', 'w', 'y', 'a',
+        'e', 'i', 'o', 'u', 'y',
     };
-
+    
     unsigned int key = (((unsigned int) c) << 3) | 0x00000007;
     int iRes = 0;
     int iHi = sizeof(aDia) / sizeof(aDia[0]) - 1;
@@ -248,87 +249,87 @@ static int sqlite3FtsUnicodeFold(int c, int bRemoveDiacritic) {
         unsigned char flags;
         unsigned char nRange;
     } aEntry[] = {
-            {65, 14, 26}, {181, 64, 1}, {192, 14, 23},
-            {216, 14, 7}, {256, 1, 48}, {306, 1, 6},
-            {313, 1, 16}, {330, 1, 46}, {376, 116, 1},
-            {377, 1, 6}, {383, 104, 1}, {385, 50, 1},
-            {386, 1, 4}, {390, 44, 1}, {391, 0, 1},
-            {393, 42, 2}, {395, 0, 1}, {398, 32, 1},
-            {399, 38, 1}, {400, 40, 1}, {401, 0, 1},
-            {403, 42, 1}, {404, 46, 1}, {406, 52, 1},
-            {407, 48, 1}, {408, 0, 1}, {412, 52, 1},
-            {413, 54, 1}, {415, 56, 1}, {416, 1, 6},
-            {422, 60, 1}, {423, 0, 1}, {425, 60, 1},
-            {428, 0, 1}, {430, 60, 1}, {431, 0, 1},
-            {433, 58, 2}, {435, 1, 4}, {439, 62, 1},
-            {440, 0, 1}, {444, 0, 1}, {452, 2, 1},
-            {453, 0, 1}, {455, 2, 1}, {456, 0, 1},
-            {458, 2, 1}, {459, 1, 18}, {478, 1, 18},
-            {497, 2, 1}, {498, 1, 4}, {502, 122, 1},
-            {503, 134, 1}, {504, 1, 40}, {544, 110, 1},
-            {546, 1, 18}, {570, 70, 1}, {571, 0, 1},
-            {573, 108, 1}, {574, 68, 1}, {577, 0, 1},
-            {579, 106, 1}, {580, 28, 1}, {581, 30, 1},
-            {582, 1, 10}, {837, 36, 1}, {880, 1, 4},
-            {886, 0, 1}, {902, 18, 1}, {904, 16, 3},
-            {908, 26, 1}, {910, 24, 2}, {913, 14, 17},
-            {931, 14, 9}, {962, 0, 1}, {975, 4, 1},
-            {976, 140, 1}, {977, 142, 1}, {981, 146, 1},
-            {982, 144, 1}, {984, 1, 24}, {1008, 136, 1},
-            {1009, 138, 1}, {1012, 130, 1}, {1013, 128, 1},
-            {1015, 0, 1}, {1017, 152, 1}, {1018, 0, 1},
-            {1021, 110, 3}, {1024, 34, 16}, {1040, 14, 32},
-            {1120, 1, 34}, {1162, 1, 54}, {1216, 6, 1},
-            {1217, 1, 14}, {1232, 1, 88}, {1329, 22, 38},
-            {4256, 66, 38}, {4295, 66, 1}, {4301, 66, 1},
-            {7680, 1, 150}, {7835, 132, 1}, {7838, 96, 1},
-            {7840, 1, 96}, {7944, 150, 8}, {7960, 150, 6},
-            {7976, 150, 8}, {7992, 150, 8}, {8008, 150, 6},
-            {8025, 151, 8}, {8040, 150, 8}, {8072, 150, 8},
-            {8088, 150, 8}, {8104, 150, 8}, {8120, 150, 2},
-            {8122, 126, 2}, {8124, 148, 1}, {8126, 100, 1},
-            {8136, 124, 4}, {8140, 148, 1}, {8152, 150, 2},
-            {8154, 120, 2}, {8168, 150, 2}, {8170, 118, 2},
-            {8172, 152, 1}, {8184, 112, 2}, {8186, 114, 2},
-            {8188, 148, 1}, {8486, 98, 1}, {8490, 92, 1},
-            {8491, 94, 1}, {8498, 12, 1}, {8544, 8, 16},
-            {8579, 0, 1}, {9398, 10, 26}, {11264, 22, 47},
-            {11360, 0, 1}, {11362, 88, 1}, {11363, 102, 1},
-            {11364, 90, 1}, {11367, 1, 6}, {11373, 84, 1},
-            {11374, 86, 1}, {11375, 80, 1}, {11376, 82, 1},
-            {11378, 0, 1}, {11381, 0, 1}, {11390, 78, 2},
-            {11392, 1, 100}, {11499, 1, 4}, {11506, 0, 1},
-            {42560, 1, 46}, {42624, 1, 24}, {42786, 1, 14},
-            {42802, 1, 62}, {42873, 1, 4}, {42877, 76, 1},
-            {42878, 1, 10}, {42891, 0, 1}, {42893, 74, 1},
-            {42896, 1, 4}, {42912, 1, 10}, {42922, 72, 1},
-            {65313, 14, 26},
+        {65, 14, 26}, {181, 64, 1}, {192, 14, 23},
+        {216, 14, 7}, {256, 1, 48}, {306, 1, 6},
+        {313, 1, 16}, {330, 1, 46}, {376, 116, 1},
+        {377, 1, 6}, {383, 104, 1}, {385, 50, 1},
+        {386, 1, 4}, {390, 44, 1}, {391, 0, 1},
+        {393, 42, 2}, {395, 0, 1}, {398, 32, 1},
+        {399, 38, 1}, {400, 40, 1}, {401, 0, 1},
+        {403, 42, 1}, {404, 46, 1}, {406, 52, 1},
+        {407, 48, 1}, {408, 0, 1}, {412, 52, 1},
+        {413, 54, 1}, {415, 56, 1}, {416, 1, 6},
+        {422, 60, 1}, {423, 0, 1}, {425, 60, 1},
+        {428, 0, 1}, {430, 60, 1}, {431, 0, 1},
+        {433, 58, 2}, {435, 1, 4}, {439, 62, 1},
+        {440, 0, 1}, {444, 0, 1}, {452, 2, 1},
+        {453, 0, 1}, {455, 2, 1}, {456, 0, 1},
+        {458, 2, 1}, {459, 1, 18}, {478, 1, 18},
+        {497, 2, 1}, {498, 1, 4}, {502, 122, 1},
+        {503, 134, 1}, {504, 1, 40}, {544, 110, 1},
+        {546, 1, 18}, {570, 70, 1}, {571, 0, 1},
+        {573, 108, 1}, {574, 68, 1}, {577, 0, 1},
+        {579, 106, 1}, {580, 28, 1}, {581, 30, 1},
+        {582, 1, 10}, {837, 36, 1}, {880, 1, 4},
+        {886, 0, 1}, {902, 18, 1}, {904, 16, 3},
+        {908, 26, 1}, {910, 24, 2}, {913, 14, 17},
+        {931, 14, 9}, {962, 0, 1}, {975, 4, 1},
+        {976, 140, 1}, {977, 142, 1}, {981, 146, 1},
+        {982, 144, 1}, {984, 1, 24}, {1008, 136, 1},
+        {1009, 138, 1}, {1012, 130, 1}, {1013, 128, 1},
+        {1015, 0, 1}, {1017, 152, 1}, {1018, 0, 1},
+        {1021, 110, 3}, {1024, 34, 16}, {1040, 14, 32},
+        {1120, 1, 34}, {1162, 1, 54}, {1216, 6, 1},
+        {1217, 1, 14}, {1232, 1, 88}, {1329, 22, 38},
+        {4256, 66, 38}, {4295, 66, 1}, {4301, 66, 1},
+        {7680, 1, 150}, {7835, 132, 1}, {7838, 96, 1},
+        {7840, 1, 96}, {7944, 150, 8}, {7960, 150, 6},
+        {7976, 150, 8}, {7992, 150, 8}, {8008, 150, 6},
+        {8025, 151, 8}, {8040, 150, 8}, {8072, 150, 8},
+        {8088, 150, 8}, {8104, 150, 8}, {8120, 150, 2},
+        {8122, 126, 2}, {8124, 148, 1}, {8126, 100, 1},
+        {8136, 124, 4}, {8140, 148, 1}, {8152, 150, 2},
+        {8154, 120, 2}, {8168, 150, 2}, {8170, 118, 2},
+        {8172, 152, 1}, {8184, 112, 2}, {8186, 114, 2},
+        {8188, 148, 1}, {8486, 98, 1}, {8490, 92, 1},
+        {8491, 94, 1}, {8498, 12, 1}, {8544, 8, 16},
+        {8579, 0, 1}, {9398, 10, 26}, {11264, 22, 47},
+        {11360, 0, 1}, {11362, 88, 1}, {11363, 102, 1},
+        {11364, 90, 1}, {11367, 1, 6}, {11373, 84, 1},
+        {11374, 86, 1}, {11375, 80, 1}, {11376, 82, 1},
+        {11378, 0, 1}, {11381, 0, 1}, {11390, 78, 2},
+        {11392, 1, 100}, {11499, 1, 4}, {11506, 0, 1},
+        {42560, 1, 46}, {42624, 1, 24}, {42786, 1, 14},
+        {42802, 1, 62}, {42873, 1, 4}, {42877, 76, 1},
+        {42878, 1, 10}, {42891, 0, 1}, {42893, 74, 1},
+        {42896, 1, 4}, {42912, 1, 10}, {42922, 72, 1},
+        {65313, 14, 26},
     };
     static const unsigned short aiOff[] = {
-            1, 2, 8, 15, 16, 26, 28, 32,
-            37, 38, 40, 48, 63, 64, 69, 71,
-            79, 80, 116, 202, 203, 205, 206, 207,
-            209, 210, 211, 213, 214, 217, 218, 219,
-            775, 7264, 10792, 10795, 23228, 23256, 30204, 54721,
-            54753, 54754, 54756, 54787, 54793, 54809, 57153, 57274,
-            57921, 58019, 58363, 61722, 65268, 65341, 65373, 65406,
-            65408, 65410, 65415, 65424, 65436, 65439, 65450, 65462,
-            65472, 65476, 65478, 65480, 65482, 65488, 65506, 65511,
-            65514, 65521, 65527, 65528, 65529,
+        1, 2, 8, 15, 16, 26, 28, 32,
+        37, 38, 40, 48, 63, 64, 69, 71,
+        79, 80, 116, 202, 203, 205, 206, 207,
+        209, 210, 211, 213, 214, 217, 218, 219,
+        775, 7264, 10792, 10795, 23228, 23256, 30204, 54721,
+        54753, 54754, 54756, 54787, 54793, 54809, 57153, 57274,
+        57921, 58019, 58363, 61722, 65268, 65341, 65373, 65406,
+        65408, 65410, 65415, 65424, 65436, 65439, 65450, 65462,
+        65472, 65476, 65478, 65480, 65482, 65488, 65506, 65511,
+        65514, 65521, 65527, 65528, 65529,
     };
-
+    
     int ret = c;
-
+    
     assert(c >= 0);
     assert(sizeof(unsigned short) == 2 && sizeof(unsigned char) == 1);
-
+    
     if (c < 128) {
         if (c >= 'A' && c <= 'Z') ret = c + ('a' - 'A');
     } else if (c < 65536) {
         int iHi = sizeof(aEntry) / sizeof(aEntry[0]) - 1;
         int iLo = 0;
         int iRes = -1;
-
+        
         while (iHi >= iLo) {
             int iTest = (iHi + iLo) / 2;
             int cmp = (c - aEntry[iTest].iCode);
@@ -340,7 +341,7 @@ static int sqlite3FtsUnicodeFold(int c, int bRemoveDiacritic) {
             }
         }
         assert(iRes < 0 || c >= aEntry[iRes].iCode);
-
+        
         if (iRes >= 0) {
             const struct TableEntry *p = &aEntry[iRes];
             if (c < (p->iCode + p->nRange) && 0 == (0x01 & p->flags & (p->iCode ^ c))) {
@@ -348,14 +349,14 @@ static int sqlite3FtsUnicodeFold(int c, int bRemoveDiacritic) {
                 assert(ret > 0);
             }
         }
-
+        
         if (bRemoveDiacritic) ret = remove_diacritic(ret);
     }
-
+    
     else if (c >= 66560 && c < 66600) {
         ret = c + 40;
     }
-
+    
     return ret;
 }
 
@@ -367,14 +368,14 @@ static int sqlite3FtsUnicodeFold(int c, int bRemoveDiacritic) {
 #ifndef SQLITE_AMALGAMATION
 
 static const unsigned char sqlite3Utf8Trans1[] = {
-        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
-        0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
-        0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
-        0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f,
-        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
-        0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
-        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
-        0x00, 0x01, 0x02, 0x03, 0x00, 0x01, 0x00, 0x00,
+    0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+    0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
+    0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
+    0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f,
+    0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+    0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
+    0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+    0x00, 0x01, 0x02, 0x03, 0x00, 0x01, 0x00, 0x00,
 };
 
 #define READ_UTF8(zIn, zTerm, c)                           \
@@ -430,7 +431,8 @@ struct unicode_cursor {
     int iToken;                     /* Index of next token to be returned */
     char *zToken;                   /* storage for current token */
     int nAlloc;                     /* space allocated at zToken */
-    struct sb_stemmer *stemmer;
+    struct sb_stemmer *stemmer;     /* Snowball stemmer */
+    struct stopwords *stopwords;   /* language specific stopwords */
 };
 
 
@@ -474,33 +476,33 @@ static int unicodeAddExceptions(
     const unsigned char *zTerm = &z[nIn];
     int iCode;
     int nEntry = 0;
-
+    
     assert(bAlnum == 0 || bAlnum == 1);
-
+    
     while (z < zTerm) {
         READ_UTF8(z, zTerm, iCode);
         assert((sqlite3FtsUnicodeIsalnum(iCode) & 0xFFFFFFFE) == 0);
         if (sqlite3FtsUnicodeIsalnum(iCode) != bAlnum
-                && sqlite3FtsUnicodeIsdiacritic(iCode) == 0
-                ) {
+            && sqlite3FtsUnicodeIsdiacritic(iCode) == 0
+            ) {
             nEntry++;
         }
     }
-
+    
     if (nEntry) {
         int *aNew;                    /* New aiException[] array */
         int nNew;                     /* Number of valid entries in array aNew[] */
-
-        aNew = sqlite3_realloc(p->aiException, (p->nException + nEntry) * sizeof(int));
+        
+        aNew = (int *)sqlite3_realloc(p->aiException, (p->nException + nEntry) * sizeof(int));
         if (aNew == 0) return SQLITE_NOMEM;
         nNew = p->nException;
-
+        
         z = (const unsigned char *) zIn;
         while (z < zTerm) {
             READ_UTF8(z, zTerm, iCode);
             if (sqlite3FtsUnicodeIsalnum(iCode) != bAlnum
-                    && sqlite3FtsUnicodeIsdiacritic(iCode) == 0
-                    ) {
+                && sqlite3FtsUnicodeIsdiacritic(iCode) == 0
+                ) {
                 int i, j;
                 for (i = 0; i < nNew && aNew[i] < iCode; i++);
                 for (j = nNew; j > i; j--) aNew[j] = aNew[j - 1];
@@ -511,7 +513,7 @@ static int unicodeAddExceptions(
         p->aiException = aNew;
         p->nException = nNew;
     }
-
+    
     return SQLITE_OK;
 }
 
@@ -523,7 +525,7 @@ static int unicodeIsException(unicode_tokenizer *p, int iCode) {
         int *a = p->aiException;
         int iLo = 0;
         int iHi = p->nException - 1;
-
+        
         while (iHi >= iLo) {
             int iTest = (iHi + iLo) / 2;
             if (iCode == a[iTest]) {
@@ -535,7 +537,7 @@ static int unicodeIsException(unicode_tokenizer *p, int iCode) {
             }
         }
     }
-
+    
     return 0;
 }
 
@@ -559,17 +561,17 @@ static int unicodeCreate(
     unicode_tokenizer *pNew;        /* New tokenizer object */
     int i;
     int rc = SQLITE_OK;
-
+    
     pNew = (unicode_tokenizer *) sqlite3_malloc(sizeof(unicode_tokenizer));
     if (pNew == NULL) return SQLITE_NOMEM;
-
+    
     memset(pNew, 0, sizeof(unicode_tokenizer));
     pNew->bRemoveDiacritic = 1;
-
+    
     for (i = 0; rc == SQLITE_OK && i < nArg; i++) {
         const char *z = azArg[i];
         int n = strlen(z);
-
+        
         if (n == 19 && memcmp("remove_diacritics=1", z, 19) == 0) {
             pNew->bRemoveDiacritic = 1;
         }
@@ -583,15 +585,16 @@ static int unicodeCreate(
             rc = unicodeAddExceptions(pNew, 0, &z[11], n - 11);
         }
         else if (n > 0) {
-            pNew->locale = malloc(sizeof(char) * n);
-            memcpy(pNew->locale, z, n);
+            pNew->locale = malloc((n + 1) * sizeof(char));
+            strcpy(pNew->locale, z);
+            pNew->locale[n] = '\0';
         }
         else {
             /* Unrecognized argument */
             rc = SQLITE_ERROR;
         }
     }
-
+    
     if (rc != SQLITE_OK) {
         unicodeDestroy((sqlite3_tokenizer *) pNew);
         pNew = 0;
@@ -613,14 +616,15 @@ static int unicodeOpen(
                        sqlite3_tokenizer_cursor **pp   /* OUT: New cursor object */
 ){
     unicode_cursor *pCsr;
-
+    
     pCsr = (unicode_cursor *) sqlite3_malloc(sizeof(unicode_cursor));
     if (pCsr == 0) {
         sb_stemmer_delete(pCsr->stemmer);
+        stopwords_destroy(pCsr->stopwords);
         return SQLITE_NOMEM;
     }
     memset(pCsr, 0, sizeof(unicode_cursor));
-
+    
     pCsr->aInput = (const unsigned char *) aInput;
     if (aInput == 0) {
         pCsr->nInput = 0;
@@ -629,12 +633,14 @@ static int unicodeOpen(
     } else {
         pCsr->nInput = nInput;
     }
-
+    
     unicode_tokenizer *ut = (unicode_tokenizer *) p;
     if (ut->locale != NULL) {
+        // create snowball stemmer
         pCsr->stemmer = sb_stemmer_new((const char *) ut->locale, NULL);
+        pCsr->stopwords = getStopwordsForLocale(ut->locale);
     }
-
+    
     *pp = &pCsr->base;
     UNUSED_PARAMETER(p);
     return SQLITE_OK;
@@ -648,6 +654,7 @@ static int unicodeClose(sqlite3_tokenizer_cursor *pCursor) {
     unicode_cursor *pCsr = (unicode_cursor *) pCursor;
     sqlite3_free(pCsr->zToken);
     sb_stemmer_delete(pCsr->stemmer);
+    stopwords_destroy(pCsr->stopwords);
     sqlite3_free(pCsr);
     return SQLITE_OK;
 }
@@ -657,12 +664,12 @@ static int unicodeClose(sqlite3_tokenizer_cursor *pCursor) {
  ** have been opened by a prior call to simpleOpen().
  */
 static int unicodeNext(
-        sqlite3_tokenizer_cursor *pC,   /* Cursor returned by simpleOpen */
-        const char **paToken,           /* OUT: Token text */
-        int *pnToken,                   /* OUT: Number of bytes at *paToken */
-        int *piStart,                   /* OUT: Starting offset of token */
-        int *piEnd,                     /* OUT: Ending offset of token */
-        int *piPos                      /* OUT: Position integer of token */
+                       sqlite3_tokenizer_cursor *pC,   /* Cursor returned by simpleOpen */
+                       const char **paToken,           /* OUT: Token text */
+                       int *pnToken,                   /* OUT: Number of bytes at *paToken */
+                       int *piStart,                   /* OUT: Starting offset of token */
+                       int *piEnd,                     /* OUT: Ending offset of token */
+                       int *piPos                      /* OUT: Position integer of token */
 ) {
     unicode_cursor *pCsr = (unicode_cursor *) pC;
     unicode_tokenizer *p = ((unicode_tokenizer *) pCsr->base.pTokenizer);
@@ -672,15 +679,15 @@ static int unicodeNext(
     const unsigned char *zStart = z;
     const unsigned char *zEnd;
     const unsigned char *zTerm = &pCsr->aInput[pCsr->nInput];
-
+    
     /* Scan past any delimiter characters before the start of the next token.
      ** Return SQLITE_DONE early if this takes us all the way to the end of
      ** the input.  */
     char *markerStart = "<marker";
     char *markerEnd = "</marker>";
-
+    
     while (z < zTerm) {
-
+        
         /* Start of custom code to escape HTML tags */
         if (z[0] == '<') {
             int i = 0;
@@ -689,14 +696,14 @@ static int unicodeNext(
                     break;
                 }
             }
-
+            
             if (i == 7) {
                 iCode = *(z += 7);
-
+                
                 while (z != zTerm && z[0] != '<') {
                     iCode = *(z++);
                 }
-
+                
                 for (i = 0; i < 9; i++) {
                     if (z[i] != markerEnd[i]) {
                         break;
@@ -705,7 +712,7 @@ static int unicodeNext(
                 if (i == 9) {
                     iCode = *(z += 8);
                 }
-
+                
             } else {
                 while (z != zTerm && z[0] != '>') {
                     iCode = *(z++);
@@ -713,70 +720,78 @@ static int unicodeNext(
             }
         }
         /* End of custom code to escape HTML tags */
-
+        
         READ_UTF8(z, zTerm, iCode);
-
+        
         if (unicodeIsAlnum(p, iCode)) {
             break;
         }
         zStart = z;
     }
-
+    
     if (zStart >= zTerm) {
         return SQLITE_DONE;
     }
-
-    zOut = pCsr->zToken;
-
+    
+    int isStopword = 0;
     do {
-        int iOut;
-
-        /* Grow the output buffer if required. */
-        if ((zOut - pCsr->zToken) >= (pCsr->nAlloc - 4)) {
-            char *zNew = sqlite3_realloc(pCsr->zToken, pCsr->nAlloc + 64);
-            if (!zNew) {
-                return SQLITE_NOMEM;
+        zOut = pCsr->zToken;
+        do {
+            int iOut;
+            
+            /* Grow the output buffer if required. */
+            if ((zOut - pCsr->zToken) >= (pCsr->nAlloc - 4)) {
+                char *zNew = (char *)sqlite3_realloc(pCsr->zToken, pCsr->nAlloc + 64);
+                if (!zNew) {
+                    return SQLITE_NOMEM;
+                }
+                zOut = &zNew[zOut - pCsr->zToken];
+                pCsr->zToken = zNew;
+                pCsr->nAlloc += 64;
             }
-            zOut = &zNew[zOut - pCsr->zToken];
-            pCsr->zToken = zNew;
-            pCsr->nAlloc += 64;
+            
+            /* Write the folded case of the last character read to the output */
+            zEnd = z;
+            iOut = sqlite3FtsUnicodeFold(iCode, p->bRemoveDiacritic);
+            if (iOut) {
+                WRITE_UTF8(zOut, iOut);
+            }
+            
+            /* If the cursor is not at EOF, read the next character */
+            if (z >= zTerm) {
+                break;
+            }
+            
+            if (z[0] == '<') {
+                break;
+            }
+            
+            READ_UTF8(z, zTerm, iCode);
+            
+        } while (unicodeIsAlnum(p, iCode) || sqlite3FtsUnicodeIsdiacritic(iCode));
+        
+        int overflow = strlen(zOut);
+        if (overflow > 0) {
+            pCsr->zToken[strlen(pCsr->zToken) - overflow] = '\0';
         }
-
-        /* Write the folded case of the last character read to the output */
-        zEnd = z;
-        iOut = sqlite3FtsUnicodeFold(iCode, p->bRemoveDiacritic);
-        if (iOut) {
-            WRITE_UTF8(zOut, iOut);
+        
+        isStopword = stopwords_is_stopword(pCsr->stopwords, pCsr->zToken);
+        if (isStopword) {
+            READ_UTF8(z, zTerm, iCode);
         }
-
-        /* If the cursor is not at EOF, read the next character */
-        if (z >= zTerm) {
-            break;
-        }
-
-        if (z[0] == '<') {
-            break;
-        }
-
-        READ_UTF8(z, zTerm, iCode);
-
-    } while (unicodeIsAlnum(p, iCode) || sqlite3FtsUnicodeIsdiacritic(iCode));
-
+        
+    } while (isStopword);
+    
     /* Set the output variables and return. */
     pCsr->iOff = (z - pCsr->aInput);
-
-    int overflow = strlen(zOut);
-    if (overflow > 0) {
-        pCsr->zToken[strlen(pCsr->zToken) - overflow] = '\0';
-    }
-
+    
     const sb_symbol *stemmed = NULL;
     if (pCsr->stemmer != NULL) {
         stemmed = sb_stemmer_stem(pCsr->stemmer, (sb_symbol *) pCsr->zToken, zOut - pCsr->zToken);
     }
     
     if (stemmed) {
-        *paToken = stemmed;
+        *paToken = (char *)stemmed;
         *pnToken = strlen((char *)stemmed);
     } else {
         *paToken = pCsr->zToken;
@@ -786,17 +801,17 @@ static int unicodeNext(
     *piStart = (zStart - pCsr->aInput);
     *piEnd = (zEnd - pCsr->aInput);
     *piPos = pCsr->iToken++;
-
+    
     return SQLITE_OK;
 }
 
 static const sqlite3_tokenizer_module unicode_module = {
-        0,
-        unicodeCreate,
-        unicodeDestroy,
-        unicodeOpen,
-        unicodeClose,
-        unicodeNext,
+    0,
+    unicodeCreate,
+    unicodeDestroy,
+    unicodeOpen,
+    unicodeClose,
+    unicodeNext,
 };
 
 int registerTokenizer(sqlite3 *db, char *zName) {
@@ -804,16 +819,16 @@ int registerTokenizer(sqlite3 *db, char *zName) {
     sqlite3_stmt *pStmt;
     const char *zSql = "SELECT fts3_tokenizer(?, ?)";
     const sqlite3_tokenizer_module *p = &unicode_module;
-
+    
     rc = sqlite3_prepare_v2(db, zSql, -1, &pStmt, 0);
     if (rc != SQLITE_OK) {
         return rc;
     }
-
+    
     sqlite3_bind_text(pStmt, 1, zName, -1, SQLITE_STATIC);
     sqlite3_bind_blob(pStmt, 2, &p, sizeof(p), SQLITE_STATIC);
     sqlite3_step(pStmt);
-
+    
     return sqlite3_finalize(pStmt);
 }
 

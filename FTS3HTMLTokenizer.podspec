@@ -6,8 +6,23 @@ Pod::Spec.new do |s|
   s.author       = 'Stephan Heilner'
   s.homepage     = 'https://github.com/stephanheilner/FTS3HTMLTokenizer'
   s.source       = { :git => "https://github.com/stephanheilner/FTS3HTMLTokenizer.git", :tag => s.version.to_s }
-  s.source_files = '*/*.{h,c}'
-  s.requires_arc = false
+  s.source_files = 'src/*.{h,c}'
+  s.requires_arc = true
   s.dependency 'sqlite3/fts'
   s.dependency 'snowball'
+  s.ios.deployment_target = '6.0'
+  s.osx.deployment_target = '10.8'
+ 
+  s.default_subspecs = 'fts3', 'stopwords'
+  
+  s.subspec 'fts3' do |ss|
+    ss.source_files = 'src/fts/*.{h,c}'
+  end
+
+  s.subspec 'stopwords' do |ss|
+  	ss.library = 'stdc++'
+    ss.source_files = 'src/stopwords/*.{h,cpp}'
+    ss.resources = 'src/stopwords/stopwords/*.txt'
+  end
+  
 end
