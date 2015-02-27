@@ -11,7 +11,9 @@ extern "C" {
 #ifndef _STOPWORDS_H_
 #define _STOPWORDS_H_
     
-extern struct sh_stopwords *getStopwordsForLocale(const char *locale, char *resource_path);
+struct sh_stopwords;
+    
+struct sh_stopwords * getStopwordsForLocale(const char *locale, char *resource_path);
    
 void stopwords_destroy(struct sh_stopwords *stopwords);
     

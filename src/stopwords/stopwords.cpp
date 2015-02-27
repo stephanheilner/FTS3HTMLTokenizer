@@ -16,7 +16,7 @@ struct sh_stopwords {
     std::unordered_set<std::string> set;
 };
 
-extern struct sh_stopwords *getStopwordsForLocale(const char *locale, char *resource_path) {
+extern struct sh_stopwords * getStopwordsForLocale(const char *locale, char *resource_path) {
     char filename[512];
     sprintf(filename, "%s/%s.txt", resource_path, locale);
     
