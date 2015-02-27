@@ -22,6 +22,7 @@
 #include <assert.h>
 
 char resource_path[512];
+char *ignore_tags[] = { "marker", "rt" };
 
 /*
  ** Return true if the argument interpreted as a unicode codepoint
@@ -434,7 +435,7 @@ struct unicode_cursor {
     char *zToken;                   /* storage for current token */
     int nAlloc;                     /* space allocated at zToken */
     struct sb_stemmer *stemmer;     /* Snowball stemmer */
-    struct stopwords *stopwords;   /* language specific stopwords */
+    struct sh_stopwords *stopwords;   /* language specific stopwords */
 };
 
 
@@ -572,7 +573,7 @@ static int unicodeCreate(
     
     for (i = 0; rc == SQLITE_OK && i < nArg; i++) {
         const char *z = azArg[i];
-        int n = strlen(z);
+        size_t n = strlen(z);
         
         if (n == 19 && memcmp("remove_diacritics=1", z, 19) == 0) {
             pNew->bRemoveDiacritic = 1;
@@ -638,9 +639,10 @@ static int unicodeOpen(
     
     unicode_tokenizer *ut = (unicode_tokenizer *) p;
     if (ut->locale != NULL) {
-        // create snowball stemmer
+        // Snowball stemmer
         pCsr->stemmer = sb_stemmer_new((const char *) ut->locale, NULL);
-
+        
+        // Set of stopwords
         pCsr->stopwords = getStopwordsForLocale(ut->locale, resource_path);
     }
     
@@ -686,58 +688,58 @@ static int unicodeNext(
     /* Scan past any delimiter characters before the start of the next token.
      ** Return SQLITE_DONE early if this takes us all the way to the end of
      ** the input.  */
-    char *markerStart = "<marker";
-    char *markerEnd = "</marker>";
     
-    while (z < zTerm) {
-        
-        /* Start of custom code to escape HTML tags */
-        if (z[0] == '<') {
-            int i = 0;
-            for (; i < 7; i++) {
-                if (z[i] != markerStart[i]) {
-                    break;
-                }
-            }
+    char tagEnd[30];
+    int isStopword = 0;
+    int numberOfIgnoreTags = sizeof(ignore_tags) / sizeof(ignore_tags[0]);
+
+    do {
+        while (z < zTerm) {
             
-            if (i == 7) {
-                iCode = *(z += 7);
+            // Start Ignore HTML tags
+            if (z[0] == '<') {
+                iCode = *(z++);
                 
-                while (z != zTerm && z[0] != '<') {
-                    iCode = *(z++);
-                }
-                
-                for (i = 0; i < 9; i++) {
-                    if (z[i] != markerEnd[i]) {
-                        break;
+                if (z[0] != '/') {
+                    if (numberOfIgnoreTags > 0) {
+                        for (int i = 0; i < numberOfIgnoreTags; i++) {
+                            char *ignoreTag = ignore_tags[i];
+                            size_t length = strlen(ignoreTag);
+                            if (!strncasecmp(z, ignoreTag, length)) {
+                                iCode = *(z += length);
+                                
+                                sprintf(tagEnd, "%s>%c", ignoreTag, '\0');
+                                
+                                // Find location of end tag
+                                char *found = strstr(z, tagEnd);
+                                if (found != NULL) {
+                                    iCode = *(z += (found - (char *)z) + length);
+                                    break;
+                                }
+                            }
+                        }
                     }
                 }
-                if (i == 9) {
-                    iCode = *(z += 8);
-                }
                 
-            } else {
                 while (z != zTerm && z[0] != '>') {
                     iCode = *(z++);
                 }
             }
+            // End Ignore HTML Tags
+            
+            READ_UTF8(z, zTerm, iCode);
+            
+            if (unicodeIsAlnum(p, iCode)) {
+                break;
+            }
+            
+            zStart = z;
         }
-        /* End of custom code to escape HTML tags */
         
-        READ_UTF8(z, zTerm, iCode);
-        
-        if (unicodeIsAlnum(p, iCode)) {
-            break;
+        if (zStart >= zTerm) {
+            return SQLITE_DONE;
         }
-        zStart = z;
-    }
-    
-    if (zStart >= zTerm) {
-        return SQLITE_DONE;
-    }
-    
-    int isStopword = 0;
-    do {
+        
         zOut = pCsr->zToken;
         do {
             int iOut;
@@ -779,9 +781,9 @@ static int unicodeNext(
         }
         
         isStopword = stopwords_is_stopword(pCsr->stopwords, pCsr->zToken);
+
         if (isStopword) {
             zStart = z;
-            READ_UTF8(z, zTerm, iCode);
         }
         
     } while (isStopword);
@@ -831,7 +833,7 @@ int registerTokenizer(sqlite3 *db, char *zName, const char *resourcePath) {
     if (rc != SQLITE_OK) {
         return rc;
     }
-
+    
     sqlite3_bind_text(pStmt, 1, zName, -1, SQLITE_STATIC);
     sqlite3_bind_blob(pStmt, 2, &p, sizeof(p), SQLITE_STATIC);
     sqlite3_step(pStmt);
