@@ -15,13 +15,11 @@
 
 #include "fts3_html_tokenizer.h"
 #include "fts3Int.h"
-#include "stopwords.h"
 
 #if !defined(SQLITE_CORE) || defined(SQLITE_ENABLE_FTS3)
 
 #include <assert.h>
 
-char resource_path[512];
 char *ignore_tags[] = { "marker", "rt" };
 
 /*
@@ -435,7 +433,6 @@ struct unicode_cursor {
     char *zToken;                   /* storage for current token */
     int nAlloc;                     /* space allocated at zToken */
     struct sb_stemmer *stemmer;     /* Snowball stemmer */
-    struct sh_stopwords *stopwords;   /* language specific stopwords */
 };
 
 
@@ -623,7 +620,6 @@ static int unicodeOpen(
     pCsr = (unicode_cursor *) sqlite3_malloc(sizeof(unicode_cursor));
     if (pCsr == 0) {
         sb_stemmer_delete(pCsr->stemmer);
-        stopwords_destroy(pCsr->stopwords);
         return SQLITE_NOMEM;
     }
     memset(pCsr, 0, sizeof(unicode_cursor));
@@ -641,9 +637,6 @@ static int unicodeOpen(
     if (ut->locale != NULL) {
         // Snowball stemmer
         pCsr->stemmer = sb_stemmer_new((const char *) ut->locale, NULL);
-        
-        // Set of stopwords
-        pCsr->stopwords = getStopwordsForLocale(ut->locale, resource_path);
     }
     
     *pp = &pCsr->base;
@@ -659,7 +652,6 @@ static int unicodeClose(sqlite3_tokenizer_cursor *pCursor) {
     unicode_cursor *pCsr = (unicode_cursor *) pCursor;
     sqlite3_free(pCsr->zToken);
     sb_stemmer_delete(pCsr->stemmer);
-    stopwords_destroy(pCsr->stopwords);
     sqlite3_free(pCsr);
     return SQLITE_OK;
 }
@@ -690,103 +682,93 @@ static int unicodeNext(
      ** the input.  */
     
     char tagEnd[30];
-    int isStopword = 0;
     int numberOfIgnoreTags = sizeof(ignore_tags) / sizeof(ignore_tags[0]);
-
-    do {
-        while (z < zTerm) {
+    
+    while (z < zTerm) {
+        
+        // Start Ignore HTML tags
+        if (z[0] == '<') {
+            iCode = *(z++);
             
-            // Start Ignore HTML tags
-            if (z[0] == '<') {
-                iCode = *(z++);
-                
-                if (z[0] != '/') {
-                    if (numberOfIgnoreTags > 0) {
-                        for (int i = 0; i < numberOfIgnoreTags; i++) {
-                            char *ignoreTag = ignore_tags[i];
-                            size_t length = strlen(ignoreTag);
-                            if (!strncasecmp(z, ignoreTag, length)) {
-                                iCode = *(z += length);
-                                
-                                sprintf(tagEnd, "%s>%c", ignoreTag, '\0');
-                                
-                                // Find location of end tag
-                                char *found = strstr(z, tagEnd);
-                                if (found != NULL) {
-                                    iCode = *(z += (found - (char *)z) + length);
-                                    break;
-                                }
+            if (z[0] != '/') {
+                if (numberOfIgnoreTags > 0) {
+                    for (int i = 0; i < numberOfIgnoreTags; i++) {
+                        char *ignoreTag = ignore_tags[i];
+                        size_t length = strlen(ignoreTag);
+                        if (!strncasecmp(z, ignoreTag, length)) {
+                            iCode = *(z += length);
+                            
+                            sprintf(tagEnd, "%s>%c", ignoreTag, '\0');
+                            
+                            // Find location of end tag
+                            char *found = strstr(z, tagEnd);
+                            if (found != NULL) {
+                                iCode = *(z += (found - (char *)z) + length);
+                                break;
                             }
                         }
                     }
                 }
-                
-                while (z != zTerm && z[0] != '>') {
-                    iCode = *(z++);
-                }
-            }
-            // End Ignore HTML Tags
-            
-            READ_UTF8(z, zTerm, iCode);
-            
-            if (unicodeIsAlnum(p, iCode)) {
-                break;
             }
             
-            zStart = z;
+            while (z != zTerm && z[0] != '>') {
+                iCode = *(z++);
+            }
+        }
+        // End Ignore HTML Tags
+        
+        READ_UTF8(z, zTerm, iCode);
+        
+        if (unicodeIsAlnum(p, iCode)) {
+            break;
         }
         
-        if (zStart >= zTerm) {
-            return SQLITE_DONE;
+        zStart = z;
+    }
+    
+    if (zStart >= zTerm) {
+        return SQLITE_DONE;
+    }
+    
+    zOut = pCsr->zToken;
+    do {
+        int iOut;
+        
+        /* Grow the output buffer if required. */
+        if ((zOut - pCsr->zToken) >= (pCsr->nAlloc - 4)) {
+            char *zNew = (char *)sqlite3_realloc(pCsr->zToken, pCsr->nAlloc + 64);
+            if (!zNew) {
+                return SQLITE_NOMEM;
+            }
+            zOut = &zNew[zOut - pCsr->zToken];
+            pCsr->zToken = zNew;
+            pCsr->nAlloc += 64;
         }
         
-        zOut = pCsr->zToken;
-        do {
-            int iOut;
-            
-            /* Grow the output buffer if required. */
-            if ((zOut - pCsr->zToken) >= (pCsr->nAlloc - 4)) {
-                char *zNew = (char *)sqlite3_realloc(pCsr->zToken, pCsr->nAlloc + 64);
-                if (!zNew) {
-                    return SQLITE_NOMEM;
-                }
-                zOut = &zNew[zOut - pCsr->zToken];
-                pCsr->zToken = zNew;
-                pCsr->nAlloc += 64;
-            }
-            
-            /* Write the folded case of the last character read to the output */
-            zEnd = z;
-            iOut = sqlite3FtsUnicodeFold(iCode, p->bRemoveDiacritic);
-            if (iOut) {
-                WRITE_UTF8(zOut, iOut);
-            }
-            
-            /* If the cursor is not at EOF, read the next character */
-            if (z >= zTerm) {
-                break;
-            }
-            
-            if (z[0] == '<') {
-                break;
-            }
-            
-            READ_UTF8(z, zTerm, iCode);
-            
-        } while (unicodeIsAlnum(p, iCode) || sqlite3FtsUnicodeIsdiacritic(iCode));
-        
-        int overflow = strlen(zOut);
-        if (overflow > 0) {
-            pCsr->zToken[strlen(pCsr->zToken) - overflow] = '\0';
+        /* Write the folded case of the last character read to the output */
+        zEnd = z;
+        iOut = sqlite3FtsUnicodeFold(iCode, p->bRemoveDiacritic);
+        if (iOut) {
+            WRITE_UTF8(zOut, iOut);
         }
         
-        isStopword = stopwords_is_stopword(pCsr->stopwords, pCsr->zToken);
-
-        if (isStopword) {
-            zStart = z;
+        /* If the cursor is not at EOF, read the next character */
+        if (z >= zTerm) {
+            break;
         }
         
-    } while (isStopword);
+        if (z[0] == '<') {
+            break;
+        }
+        
+        READ_UTF8(z, zTerm, iCode);
+        
+    } while (unicodeIsAlnum(p, iCode) || sqlite3FtsUnicodeIsdiacritic(iCode));
+    
+    int overflow = strlen(zOut);
+    if (overflow > 0) {
+        pCsr->zToken[strlen(pCsr->zToken) - overflow] = '\0';
+    }
     
     /* Set the output variables and return. */
     pCsr->iOff = (z - pCsr->aInput);
@@ -820,10 +802,7 @@ static const sqlite3_tokenizer_module unicode_module = {
     unicodeNext,
 };
 
-int registerTokenizer(sqlite3 *db, char *zName, const char *resourcePath) {
-    sprintf(resource_path, "%s", resourcePath);
-    resource_path[strlen(resourcePath)] = '\0';
-    
+int registerTokenizer(sqlite3 *db, char *zName) {
     int rc;
     sqlite3_stmt *pStmt;
     const char *zSql = "SELECT fts3_tokenizer(?, ?)";

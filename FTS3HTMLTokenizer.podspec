@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name         = 'FTS3HTMLTokenizer'
-  s.version      = '1.0.4'
+  s.version      = '1.0.5'
   s.summary      = 'FTS3 HTML Tokenizer'
   s.license      = 'MIT'
   s.author       = 'Stephan Heilner'
@@ -12,17 +12,10 @@ Pod::Spec.new do |s|
   s.dependency 'snowball'
   s.ios.deployment_target = '6.0'
   s.osx.deployment_target = '10.8'
- 
-  s.default_subspecs = 'fts3', 'stopwords'
+  s.default_subspecs = 'fts3'
   
   s.subspec 'fts3' do |ss|
     ss.source_files = 'src/fts/*.{h,c}'
-  end
-
-  s.subspec 'stopwords' do |ss|
-    s.library = 'c++'
-    ss.source_files = 'src/stopwords/*.{h,cpp}'
-    ss.resources = 'src/stopwords/stopwords/*.txt'
   end
   
 end
