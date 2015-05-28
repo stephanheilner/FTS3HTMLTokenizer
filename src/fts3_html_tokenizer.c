@@ -20,7 +20,9 @@
 
 #include <assert.h>
 
-char *ignore_tags[] = { "marker", "rt" };
+char *ignore_tags[] = { "marker" };
+char *nonbreaking_tags[] = { "ruby" };
+char *nonbreaking_ignore_tags[] = { "rp", "rt" };
 
 /*
  ** Return true if the argument interpreted as a unicode codepoint
@@ -683,6 +685,8 @@ static int unicodeNext(
     
     char tagEnd[30];
     int numberOfIgnoreTags = sizeof(ignore_tags) / sizeof(ignore_tags[0]);
+    int numberOfNonbreakingTags = sizeof(nonbreaking_tags) / sizeof(nonbreaking_tags[0]);
+    int numberOfNonbreakingIgnoreTags = sizeof(nonbreaking_ignore_tags) / sizeof(nonbreaking_ignore_tags[0]);
     
     while (z < zTerm) {
         
@@ -691,14 +695,33 @@ static int unicodeNext(
             iCode = *(z++);
             
             if (z[0] != '/') {
-                if (numberOfIgnoreTags > 0) {
-                    for (int i = 0; i < numberOfIgnoreTags; i++) {
-                        char *ignoreTag = ignore_tags[i];
+                int ignoredTag = 0;
+                for (int i = 0; i < numberOfIgnoreTags; i++) {
+                    char *ignoreTag = ignore_tags[i];
+                    size_t length = strlen(ignoreTag);
+                    if (!strncasecmp(z, ignoreTag, length)) {
+                        iCode = *(z += length);
+                        ignoredTag = 1;
+                        
+                        sprintf(tagEnd, "%s>", ignoreTag);
+                        
+                        // Find location of end tag
+                        char *found = strstr(z, tagEnd);
+                        if (found != NULL) {
+                            iCode = *(z += (found - (char *)z) + length);
+                            break;
+                        }
+                    }
+                }
+                if (ignoredTag == 0) {
+                    for (int i = 0; i < numberOfNonbreakingIgnoreTags; i++) {
+                        char *ignoreTag = nonbreaking_ignore_tags[i];
                         size_t length = strlen(ignoreTag);
                         if (!strncasecmp(z, ignoreTag, length)) {
                             iCode = *(z += length);
+                            ignoredTag = 1;
                             
-                            sprintf(tagEnd, "%s>%c", ignoreTag, '\0');
+                            sprintf(tagEnd, "%s>", ignoreTag);
                             
                             // Find location of end tag
                             char *found = strstr(z, tagEnd);
@@ -756,6 +779,81 @@ static int unicodeNext(
         if (z >= zTerm) {
             break;
         }
+        
+        // Start Ignore HTML tags
+        while (z[0] == '<') {
+            if (z[1] == '/') {
+                int ignoring_tag = 0;
+                for (int i = 0; i < numberOfNonbreakingTags; i++) {
+                    char *ignoreTag = nonbreaking_tags[i];
+                    size_t length = strlen(ignoreTag);
+                    if (!strncasecmp(z + 2, ignoreTag, length)) {
+                        ignoring_tag = 1;
+                        iCode = *(z += 2 + length);
+                        
+                        while (z != zTerm && z[0] != '>') {
+                            iCode = *(z++);
+                        }
+                        
+                        iCode = *(z++);
+                    }
+                }
+                
+                if (ignoring_tag == 0) {
+                    break;
+                }
+            } else {
+                int ignoring_tag = 0;
+                for (int i = 0; i < numberOfNonbreakingIgnoreTags; i++) {
+                    char *ignoreTag = nonbreaking_ignore_tags[i];
+                    size_t length = strlen(ignoreTag);
+                    if (!strncasecmp(z + 1, ignoreTag, length)) {
+                        ignoring_tag = 1;
+                        iCode = *(z += 1 + length);
+                        
+                        sprintf(tagEnd, "%s>", ignoreTag);
+                        
+                        // Find location of end tag
+                        char *found = strstr(z, tagEnd);
+                        if (found != NULL) {
+                            iCode = *(z += (found - (char *)z) + length);
+                            
+                            while (z != zTerm && z[0] != '>') {
+                                iCode = *(z++);
+                            }
+                            
+                            iCode = *(z++);
+                            break;
+                        }
+                    }
+                }
+                
+                if (ignoring_tag != 0) {
+                    continue;
+                }
+                
+                ignoring_tag = 0;
+                for (int i = 0; i < numberOfNonbreakingTags; i++) {
+                    char *ignoreTag = nonbreaking_tags[i];
+                    size_t length = strlen(ignoreTag);
+                    if (!strncasecmp(z + 1, ignoreTag, length)) {
+                        ignoring_tag = 1;
+                        iCode = *(z += 1 + length);
+                        
+                        while (z != zTerm && z[0] != '>') {
+                            iCode = *(z++);
+                        }
+                        
+                        iCode = *(z++);
+                    }
+                }
+                
+                if (ignoring_tag == 0) {
+                    break;
+                }
+            }
+        }
+        // End Ignore HTML Tags
         
         if (z[0] == '<') {
             break;
