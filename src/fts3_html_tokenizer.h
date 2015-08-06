@@ -16,7 +16,7 @@
 #include "fts3_tokenizer.h"
 #include <string.h>
 #include <ctype.h>
-#include <libstemmer.h>
+#include "libstemmer.h"
 
 int registerTokenizer(sqlite3 *db, char *zName);
 
