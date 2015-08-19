@@ -20,7 +20,10 @@
 
 #include <assert.h>
 
-char *ignore_tags[] = { "marker" };
+// Elements of these two arrays are paired
+char *ignore_opening_tags[] = { "sup class=\"marker\"" };
+char *ignore_closing_tags[] = { "sup" };
+
 char *nonbreaking_tags[] = { "ruby" };
 char *nonbreaking_ignore_tags[] = { "rp", "rt" };
 
@@ -684,7 +687,7 @@ static int unicodeNext(
      ** the input.  */
     
     char tagEnd[30];
-    int numberOfIgnoreTags = sizeof(ignore_tags) / sizeof(ignore_tags[0]);
+    int numberOfIgnoreTags = sizeof(ignore_opening_tags) / sizeof(ignore_opening_tags[0]);
     int numberOfNonbreakingTags = sizeof(nonbreaking_tags) / sizeof(nonbreaking_tags[0]);
     int numberOfNonbreakingIgnoreTags = sizeof(nonbreaking_ignore_tags) / sizeof(nonbreaking_ignore_tags[0]);
     
@@ -697,18 +700,20 @@ static int unicodeNext(
             if (z[0] != '/') {
                 int ignoredTag = 0;
                 for (int i = 0; i < numberOfIgnoreTags; i++) {
-                    char *ignoreTag = ignore_tags[i];
-                    size_t length = strlen(ignoreTag);
-                    if (!strncasecmp(z, ignoreTag, length)) {
-                        iCode = *(z += length);
+                    char *ignoreOpeningTag = ignore_opening_tags[i];
+                    size_t openingLength = strlen(ignoreOpeningTag);
+                    if (!strncasecmp(z, ignoreOpeningTag, openingLength)) {
+                        iCode = *(z += openingLength);
                         ignoredTag = 1;
                         
-                        sprintf(tagEnd, "%s>", ignoreTag);
+                        char *ignoreClosingTag = ignore_closing_tags[i];
+                        size_t closingLength = strlen(ignoreClosingTag);
+                        sprintf(tagEnd, "%s>", ignoreClosingTag);
                         
                         // Find location of end tag
                         char *found = strstr(z, tagEnd);
                         if (found != NULL) {
-                            iCode = *(z += (found - (char *)z) + length);
+                            iCode = *(z += (found - (char *)z) + closingLength);
                             break;
                         }
                     }
