@@ -21,8 +21,8 @@
 #include <assert.h>
 
 // Elements of these two arrays are paired
-char *ignore_opening_tags[] = { "sup class=\"marker\"", "head" };
-char *ignore_closing_tags[] = { "sup", "head" };
+char *ignore_opening_tags[] = { "sup class=\"marker\"", "head", "footer class=\"study-notes\"", "footer class=\"notes\"" };
+char *ignore_closing_tags[] = { "sup", "head", "footer", "footer" };
 
 char *nonbreaking_tags[] = { "ruby" };
 char *nonbreaking_ignore_tags[] = { "rp", "rt" };
