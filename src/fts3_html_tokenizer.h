@@ -17,6 +17,7 @@
 #include <string.h>
 #include <ctype.h>
 #include "libstemmer.h"
+#include <sqlite3.h>
 
 int registerTokenizer(sqlite3 *db, char *zName);
 

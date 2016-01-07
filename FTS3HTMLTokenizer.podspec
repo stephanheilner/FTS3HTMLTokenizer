@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name         = 'FTS3HTMLTokenizer'
-  s.version      = '1.0.10'
+  s.version      = '1.0.11'
   s.summary      = 'FTS3 HTML Tokenizer'
   s.license      = 'MIT'
   s.author       = 'Stephan Heilner'
