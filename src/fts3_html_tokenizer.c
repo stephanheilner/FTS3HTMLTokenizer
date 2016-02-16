@@ -15,9 +15,11 @@
 
 #include "fts3_html_tokenizer.h"
 #include "fts3Int.h"
-
-#if !defined(SQLITE_CORE) || defined(SQLITE_ENABLE_FTS3)
-
+#include <snowball/libstemmer.h>
+#include <string.h>
+#include <ctype.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <assert.h>
 
 // Elements of these two arrays are paired
@@ -922,5 +924,3 @@ int registerTokenizer(sqlite3 *db, char *zName) {
     
     return sqlite3_finalize(pStmt);
 }
-
-#endif /* !defined(SQLITE_CORE) || defined(SQLITE_ENABLE_FTS3) */
