@@ -14,13 +14,13 @@
  */
 
 #include "fts3_html_tokenizer.h"
-#include "fts3Int.h"
-#include <snowball/libstemmer.h>
+#include "fts/fts3Int.h"
 #include <string.h>
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
+#include "libstemmer.h"
 
 // Elements of these two arrays are paired
 char *ignore_opening_tags[] = { "sup class=\"marker\"", "head", "footer class=\"study-notes\"", "footer class=\"notes\"" };
