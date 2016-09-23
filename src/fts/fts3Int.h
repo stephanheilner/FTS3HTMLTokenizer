@@ -35,7 +35,7 @@
 //extern const sqlite3_api_routines *sqlite3_api;
 //#endif
 
-#include "sqlite3.h"
+#include <sqlite3.h>
 #include "fts3_tokenizer.h"
 #include "fts3_hash.h"
 
