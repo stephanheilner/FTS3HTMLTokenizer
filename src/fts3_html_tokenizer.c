@@ -877,15 +877,18 @@ static int unicodeNext(
     
     /* Set the output variables and return. */
     pCsr->iOff = (z - pCsr->aInput);
-    
-    const sb_symbol *stemmed = NULL;
+
+    char *token = NULL;
+    int tokenSize = 0;
     if (pCsr->stemmer != NULL) {
-        stemmed = sb_stemmer_stem(pCsr->stemmer, (sb_symbol *) pCsr->zToken, zOut - pCsr->zToken);
+        const sb_symbol *stemmed = sb_stemmer_stem(pCsr->stemmer, (sb_symbol *)pCsr->zToken, (zOut - pCsr->zToken));
+        token = (char *)stemmed;
+        tokenSize = strlen(token);
     }
     
-    if (stemmed) {
-        *paToken = (char *)stemmed;
-        *pnToken = strlen((char *)stemmed);
+    if (token && tokenSize > 0) {
+        *paToken = token;
+        *pnToken = tokenSize;
     } else {
         *paToken = pCsr->zToken;
         *pnToken = zOut - pCsr->zToken;
