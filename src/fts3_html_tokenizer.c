@@ -96,7 +96,7 @@ static int sqlite3FtsUnicodeCouldBeEmoji(int c) {
         0x07E69406, 0x07E6B813, 0x07E70809, 0x07E73421, 0x07E7BC11,
         0x07E9C004, 0x07E9E003, 0x07EA0003, 0x07EA4006, 0x38018802,
         0x38019401, 0x38019C01, 0x3801B001, 0x3801B801, 0x3801CC02,
-        0x3801DC01,
+        0x3801DC01, 0x3801FC01,
     };
     
     unsigned int key = (((unsigned int) c) << 10) | 0x000003FF;
