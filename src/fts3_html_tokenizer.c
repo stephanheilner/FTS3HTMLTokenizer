@@ -42,6 +42,82 @@ static int sqlite3FtsUnicodeIsdiacritic(int c) {
     (mask1 & (1 << (c-768-32)));
 }
 
+#ifdef FTS_TOKENIZE_EMOJI
+/*
+** Return true if the argument corresponds to a unicode codepoint
+** that could be classified as an emoji character. Otherwise false.
+**
+** The results are undefined if the value passed to this function
+** is less than zero.
+*/
+static int sqlite3FtsUnicodeCouldBeEmoji(int c) {
+    /* Each unsigned integer in the following array corresponds to a contiguous
+    ** range of unicode codepoints that are could be part of an emoji character (i.e.
+    ** codepoints for which this function should return 1).
+    **
+    ** The most significant 22 bits in each 32-bit value contain the first
+    ** codepoint in the range. The least significant 10 bits are used to store
+    ** the size of the range (always at least 1). In other words, the value
+    ** ((C<<22) + N) represents a range of N codepoints starting with codepoint
+    ** C. It is not possible to represent a range larger than 1023 codepoints
+    ** using this format.
+    */
+    static const unsigned int emojiEntry[] = {
+        0x00008C01, 0x0000A801, 0x0000C00A, 0x0002A401, 0x0002B801,
+        0x00803401, 0x0080F001, 0x00812401, 0x00838C01, 0x00848801,
+        0x0084E401, 0x00865006, 0x0086A402, 0x008C6802, 0x008CA001,
+        0x008F3C01, 0x008FA40B, 0x008FE003, 0x00930801, 0x0096A802,
+        0x0096D801, 0x00970001, 0x0097EC04, 0x00980005, 0x00983801,
+        0x00984401, 0x00985002, 0x00986001, 0x00987401, 0x00988001,
+        0x00988802, 0x00989801, 0x0098A801, 0x0098B802, 0x0098E003,
+        0x00990001, 0x00990801, 0x0099200C, 0x00997C02, 0x00998C01,
+        0x00999402, 0x0099A001, 0x0099EC01, 0x0099F802, 0x009A4806,
+        0x009A6401, 0x009A6C02, 0x009A8002, 0x009AA802, 0x009AC002,
+        0x009AF402, 0x009B1002, 0x009B2001, 0x009B3802, 0x009B4401,
+        0x009B4C02, 0x009BA402, 0x009BC006, 0x009BDC04, 0x009BF401,
+        0x009C0801, 0x009C1401, 0x009C2006, 0x009C3C01, 0x009C4801,
+        0x009C5001, 0x009C5801, 0x009C7401, 0x009C8401, 0x009CA001,
+        0x009CCC02, 0x009D1001, 0x009D1C01, 0x009D3001, 0x009D3801,
+        0x009D4C03, 0x009D5C01, 0x009D8C02, 0x009E5403, 0x009E8401,
+        0x009EC001, 0x009EFC01, 0x00A4D002, 0x00AC1403, 0x00AC6C02,
+        0x00AD4001, 0x00AD5401, 0x00C0C001, 0x00C0F401, 0x00CA5C01,
+        0x00CA6401, 0x03F83C01, 0x07C01001, 0x07C33C01, 0x07C5C002,
+        0x07C5F802, 0x07C63801, 0x07C6440A, 0x07C7981A, 0x07C80402,
+        0x07C86801, 0x07C8BC01, 0x07C8C809, 0x07C94002, 0x07CC0022,
+        0x07CC905F, 0x07CE1010, 0x07CE5802, 0x07CE6403, 0x07CE7853,
+        0x07CFCC03, 0x07CFDC87, 0x07D1FC7F, 0x07D3FC3F, 0x07D52406,
+        0x07D54018, 0x07D5BC02, 0x07D5CC08, 0x07D61C01, 0x07D62804,
+        0x07D64001, 0x07D65801, 0x07D69002, 0x07D6A001, 0x07D6C402,
+        0x07D6F001, 0x07D70803, 0x07D74403, 0x07D77003, 0x07D78401,
+        0x07D78C01, 0x07D7A001, 0x07D7BC01, 0x07D7CC01, 0x07D7E856,
+        0x07DA0046, 0x07DB2C08, 0x07DB5401, 0x07DB8006, 0x07DBA401,
+        0x07DBAC02, 0x07DBC001, 0x07DBCC08, 0x07DF800C, 0x07E4342E,
+        0x07E4F00A, 0x07E51C2B, 0x07E5CC04, 0x07E5E824, 0x07E67C04,
+        0x07E69406, 0x07E6B813, 0x07E70809, 0x07E73421, 0x07E7BC11,
+        0x07E9C004, 0x07E9E003, 0x07EA0003, 0x07EA4006, 0x38018802,
+        0x38019401, 0x38019C01, 0x3801B001, 0x3801B801, 0x3801CC02,
+        0x3801DC01,
+    };
+    
+    unsigned int key = (((unsigned int) c) << 10) | 0x000003FF;
+    int iRes = 0;
+    int iHi = sizeof(emojiEntry) / sizeof(emojiEntry[0]) - 1;
+    int iLo = 0;
+    while (iHi >= iLo) {
+        int iTest = (iHi + iLo) / 2;
+        if (key >= emojiEntry[iTest]) {
+            iRes = iTest;
+            iLo = iTest + 1;
+        } else {
+            iHi = iTest - 1;
+        }
+    }
+    assert(aEntry[0] < key);
+    assert(key >= aEntry[iRes]);
+    return (((unsigned int) c) < ((emojiEntry[iRes] >> 10) + (emojiEntry[iRes] & 0x3FF)));
+}
+#endif
+
 /*
  ** Return true if the argument corresponds to a unicode codepoint
  ** classified as either a letter or a number. Otherwise false.
@@ -151,6 +227,10 @@ static int sqlite3FtsUnicodeIsalnum(int c) {
     
     if (c < 128) {
         return ((aAscii[c >> 5] & (1 << (c & 0x001F))) == 0);
+#ifdef FTS_TOKENIZE_EMOJI
+    } else if (sqlite3FtsUnicodeCouldBeEmoji(c)) {
+        return 1;
+#endif
     } else if (c < (1 << 22)) {
         unsigned int key = (((unsigned int) c) << 10) | 0x000003FF;
         int iRes = 0;
