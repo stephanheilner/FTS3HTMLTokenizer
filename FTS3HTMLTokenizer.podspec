@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name         = 'FTS3HTMLTokenizer'
-  s.version      = '3.0.0'
+  s.version      = '3.1.0'
   s.summary      = 'FTS3 HTML Tokenizer'
   s.license      = 'MIT'
   s.author       = 'Stephan Heilner'
@@ -19,4 +19,5 @@ Pod::Spec.new do |s|
   s.private_header_files = 'src/fts/*.h'
   
   s.libraries    = 'sqlite3'
+  s.swift_version = '5.0'
 end
