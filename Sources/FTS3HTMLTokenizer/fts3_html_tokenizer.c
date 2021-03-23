@@ -42,7 +42,6 @@ static int sqlite3FtsUnicodeIsdiacritic(int c) {
     (mask1 & (1 << (c-768-32)));
 }
 
-#ifdef FTS_TOKENIZE_EMOJI
 /*
 ** Return true if the argument corresponds to a unicode codepoint
 ** that could be classified as an emoji character. Otherwise false.
@@ -116,7 +115,6 @@ static int sqlite3FtsUnicodeCouldBeEmoji(int c) {
     assert(key >= aEntry[iRes]);
     return (((unsigned int) c) < ((emojiEntry[iRes] >> 10) + (emojiEntry[iRes] & 0x3FF)));
 }
-#endif
 
 /*
  ** Return true if the argument corresponds to a unicode codepoint
@@ -227,10 +225,8 @@ static int sqlite3FtsUnicodeIsalnum(int c) {
     
     if (c < 128) {
         return ((aAscii[c >> 5] & (1 << (c & 0x001F))) == 0);
-#ifdef FTS_TOKENIZE_EMOJI
     } else if (sqlite3FtsUnicodeCouldBeEmoji(c)) {
         return 1;
-#endif
     } else if (c < (1 << 22)) {
         unsigned int key = (((unsigned int) c) << 10) | 0x000003FF;
         int iRes = 0;
