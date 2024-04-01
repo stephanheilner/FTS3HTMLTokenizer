@@ -4,6 +4,10 @@
 
 FTS3HTMLTokenizer is available under the MIT license. See the LICENSE file for more info.
 
+## Privacy Manifest
+
+* This package does not access private data. 
+
 ## Usage
 
 ```objective-c
