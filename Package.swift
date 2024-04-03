@@ -21,6 +21,8 @@ let package = Package(
         .target(
             name: "FTS3HTMLTokenizer",
             dependencies: ["libstemmer_c"],
+            path: "Sources/FTS3HTMLTokenizer",
+            resources: [.copy("PrivacyInfo.xcprivacy")],
             publicHeadersPath: "",
             linkerSettings: [
                 .linkedLibrary("sqlite3"),
